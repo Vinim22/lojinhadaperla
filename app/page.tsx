@@ -45,7 +45,9 @@ const whatsappLink = (phone?: string, text?: string) => {
   return `https://wa.me/${target}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
 };
 
-function Header({ products, cartCount, cartTotal, onCart, onFavorites, onProduct, onCategory, onSearch }: { products: Product[]; cartCount: number; cartTotal: number; onCart: () => void; onFavorites: () => void; onProduct: (product: Product) => void; onCategory: (category: string) => void; onSearch: (query: string) => void }) {
+const productCategories = (product: Product) => product.category.split(",").map(category => category.trim()).filter(Boolean);
+
+function Header({ storeName, products, cartCount, cartTotal, onCart, onFavorites, onProduct, onCategory, onSearch }: { storeName: string; products: Product[]; cartCount: number; cartTotal: number; onCart: () => void; onFavorites: () => void; onProduct: (product: Product) => void; onCategory: (category: string) => void; onSearch: (query: string) => void }) {
   const [query, setQuery] = useState("");
   const matches = query.trim()
     ? products.filter((product) => product.name.toLowerCase().includes(query.toLowerCase())).slice(0, 4)
@@ -54,9 +56,9 @@ function Header({ products, cartCount, cartTotal, onCart, onFavorites, onProduct
   return (
     <header className="site-header">
       <div className="header-inner">
-        <a className="brand" href="#top" aria-label="Início da Lojinha da Perla">
+        <a className="brand" href="#top" aria-label={`Início da ${storeName}`}>
           <span className="brand-mark">P</span>
-          <span><strong>Lojinha da Perla</strong><small>Preço bom pertinho de você</small></span>
+          <span><strong>{storeName}</strong><small>Preço bom pertinho de você</small></span>
         </a>
         <div className="search-wrap">
           <span className="search-icon" aria-hidden="true">⌕</span>
@@ -74,7 +76,7 @@ function Header({ products, cartCount, cartTotal, onCart, onFavorites, onProduct
                   <span style={{ background: product.color }}>{product.art}</span>
                   <span><strong>{product.name}</strong><small>{product.category} · {money(product.price)}</small></span>
                 </button>
-              ))}<small className="search-label">CATEGORIAS</small>{[...new Set(matches.map(product => product.category))].map(category => <button className="category-suggestion" key={category} onClick={() => { onCategory(category); setQuery(""); }}>Ver tudo em {category} <span>→</span></button>)}<button className="all-results" onClick={() => { onSearch(query.trim()); setQuery(""); }}>Ver todos os resultados</button></> : <p>Nenhum resultado encontrado.</p>}
+              ))}<small className="search-label">CATEGORIAS</small>{[...new Set(matches.flatMap(productCategories))].map(category => <button className="category-suggestion" key={category} onClick={() => { onCategory(category); setQuery(""); }}>Ver tudo em {category} <span>→</span></button>)}<button className="all-results" onClick={() => { onSearch(query.trim()); setQuery(""); }}>Ver todos os resultados</button></> : <p>Nenhum resultado encontrado.</p>}
             </div>
           )}
         </div>
@@ -132,7 +134,6 @@ export default function Home() {
   const [imageOpen, setImageOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [storeScroll, setStoreScroll] = useState(0);
-  const productCategories = (product: Product) => product.category.split(",").map(category => category.trim()).filter(Boolean);
   const filteredProducts = activeCategory === "Todos" ? products : products.filter((product) => productCategories(product).includes(activeCategory) || activeCategory === "Ofertas" && product.oldPrice);
   const cartTotal = useMemo(() => cart.reduce((total, product) => total + product.price, 0), [cart]);
   const cartItems = useMemo(() => products.map(product => ({ product, quantity: cart.filter(item => item.id === product.id).length })).filter(item => item.quantity > 0), [cart]);
@@ -140,6 +141,7 @@ export default function Home() {
   const deliveryFee = customer.fulfillment === "entrega" && selectedNeighborhood ? selectedNeighborhood.deliveryFee : 0;
   const orderTotal = Number((cartTotal + deliveryFee).toFixed(2));
   const storeName = settings.store_name || "Lojinha da Perla";
+  const hasStoreInfo = Boolean(settings.address || settings.hours);
   const favoriteProducts = products.filter(product => favorites.includes(product.id));
   useEffect(() => {
     try { setCart(JSON.parse(localStorage.getItem("perla-cart") || "[]")); setFavorites(JSON.parse(localStorage.getItem("perla-favorites") || "[]")); setRecentIds(JSON.parse(localStorage.getItem("perla-recents") || "[]")); } catch {}
@@ -162,7 +164,7 @@ export default function Home() {
   const openSearch = (query: string) => { setSearchQuery(query); setView("search"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const searchProducts = products.filter(product => `${product.name} ${product.category} ${product.description || ""}`.toLowerCase().includes(searchQuery.toLowerCase()));
   const recentProducts = recentIds.map(id => products.find(product => product.id === id)).filter(Boolean) as Product[];
-  const relatedProducts = selectedProduct ? products.filter(product => product.category === selectedProduct.category && product.id !== selectedProduct.id).slice(0, 8) : [];
+  const relatedProducts = selectedProduct ? products.filter(product => product.id !== selectedProduct.id && productCategories(product).some(category => productCategories(selectedProduct).includes(category))).slice(0, 8) : [];
   const orderText = useMemo(() => {
     const lines = cartItems.map(({ product, quantity }) => `• ${quantity}x ${product.name} — ${money(product.price * quantity)}`);
     return [`Olá! Quero fazer este pedido na ${storeName}:`, "", ...lines, "", `Produtos: ${money(cartTotal)}`, deliveryFee > 0 && `Entrega: ${money(deliveryFee)}`, `Total: ${money(orderTotal)}`, `Recebimento: ${customer.fulfillment === "entrega" ? "Entrega" : "Retirada na loja"}`, selectedNeighborhood && `Bairro: ${selectedNeighborhood.name}`, customer.name && `Cliente: ${customer.name}`, customer.phone && `Telefone: ${customer.phone}`, customer.fulfillment === "entrega" && customer.address && `Endereço: ${customer.address}`, customer.reference && `Referência: ${customer.reference}`, customer.notes && `Observações: ${customer.notes}`].filter(Boolean).join("\n");
@@ -182,7 +184,7 @@ export default function Home() {
 
   return (
     <div id="top">
-      <Header products={products} cartCount={cart.length} cartTotal={cartTotal} onCart={() => setCartOpen(true)} onFavorites={() => setView("favorites")} onProduct={openProduct} onCategory={openCategory} onSearch={openSearch} />
+      <Header storeName={storeName} products={products} cartCount={cart.length} cartTotal={cartTotal} onCart={() => setCartOpen(true)} onFavorites={() => setView("favorites")} onProduct={openProduct} onCategory={openCategory} onSearch={openSearch} />
       {view === "favorites" ? <main className="saved-page"><div className="saved-heading"><button onClick={() => goHome()}>← Voltar</button><div><span>SEUS ESCOLHIDOS</span><h1>Produtos favoritos</h1></div>{favorites.length > 0 && <button className="clear-favorites" onClick={() => { setFavorites([]); goHome(); }}>Limpar favoritos</button>}</div>{favoriteProducts.length ? <div className="product-grid">{favoriteProducts.map(product => <ProductCard key={product.id} product={product} favorite onFavorite={() => toggleFavorite(product.id)} onOpen={() => openProduct(product)} onAdd={item => setCart(current => [...current, item])} />)}</div> : null}</main> : view === "search" ? <main className="saved-page search-page"><div className="saved-heading"><button onClick={() => goHome()}>← Voltar</button><div><span>RESULTADOS DA PESQUISA</span><h1>“{searchQuery}”</h1></div></div>{searchProducts.length ? <><p className="result-count">{searchProducts.length} {searchProducts.length === 1 ? "produto encontrado" : "produtos encontrados"}</p><div className="product-grid">{searchProducts.map(product => <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onFavorite={() => toggleFavorite(product.id)} onOpen={() => openProduct(product)} onAdd={item => setCart(current => [...current, item])} />)}</div></> : <div className="no-results"><span>⌕</span><h2>Nenhum resultado encontrado</h2></div>}</main> : view === "product" && selectedProduct ? <main className="product-page"><button className="product-back" onClick={() => goHome(true)}>← Voltar para produtos</button><section className="product-detail"><button className="product-gallery" style={{background:selectedProduct.color}} onClick={() => setImageOpen(true)}><span>{selectedProduct.art}</span><small>Toque para ampliar</small></button><div className="product-copy"><small>{selectedProduct.category}</small><h1>{selectedProduct.name}</h1><p>{selectedProduct.description || "Produto selecionado da Lojinha da Perla. Consulte detalhes e disponibilidade pelo WhatsApp."}</p>{selectedProduct.oldPrice && <del>{money(selectedProduct.oldPrice)}</del>}<strong className="product-price">{money(selectedProduct.price)}</strong><div className="product-buttons"><button onClick={() => setCart(current => [...current, selectedProduct])}>Adicionar ao carrinho</button><button className="product-heart" onClick={() => toggleFavorite(selectedProduct.id)}>{favorites.includes(selectedProduct.id) ? "♥ Favoritado" : "♡ Favoritar"}</button></div><button className="share-product" onClick={() => setShareOpen(true)}>↗ Compartilhar produto</button>{shareOpen && <div className="share-menu"><a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">WhatsApp</a><button onClick={() => navigator.share ? navigator.share({ title: selectedProduct.name, text: `${selectedProduct.name} — ${money(selectedProduct.price)}`, url: productUrl }) : copyProductLink()}>Outros aplicativos</button><button onClick={copyProductLink}>Copiar link</button></div>}</div></section>{relatedProducts.length > 0 && <section className="related"><div className="section-heading"><div><span>VOCÊ TAMBÉM PODE GOSTAR</span><h2>Produtos relacionados</h2></div></div><div className="horizontal-products">{relatedProducts.map(product => <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onFavorite={() => toggleFavorite(product.id)} onOpen={() => openProduct(product)} onAdd={item => setCart(current => [...current,item])}/>)}</div></section>}</main> : (
       <main className="page-shell">
         <aside className="category-sidebar">
@@ -198,7 +200,7 @@ export default function Home() {
 
         <div className="store-content">
           <section className="hero">
-            <div className="hero-copy"><span className="eyebrow">COMPRE FÁCIL · RECEBA RÁPIDO</span><h1>Tem de tudo um pouco.<br/><em>E cabe no seu bolso.</em></h1><p>Escolha seus produtos, monte o carrinho e finalize direto pelo WhatsApp.</p><a href="#produtos">Ver produtos <span>→</span></a></div>
+            <div className="hero-copy"><span className="eyebrow">COMPRE FÁCIL · RECEBA RÁPIDO</span><h1>Tem de tudo um pouco.<br/><em>E cabe no seu bolso.</em></h1><p>Escolha seus produtos, monte o carrinho e finalize direto pelo WhatsApp.</p>{hasStoreInfo && <div className="store-info-strip">{settings.hours && <span>⏱ {settings.hours}</span>}{settings.address && <span>📍 {settings.address}</span>}</div>}<a href="#produtos">Ver produtos <span>→</span></a></div>
             <div className="hero-scene" aria-hidden="true"><span className="blob one"></span><span className="blob two"></span><div className="shopping-bag">P<small>Perla</small></div><span className="float f1">🧴</span><span className="float f2">💡</span><span className="float f3">🎈</span></div>
           </section>
 
@@ -208,8 +210,8 @@ export default function Home() {
 
           <section className="benefits">
             <div><span>⚡</span><p><strong>Pedido rápido</strong><small>Finalize pelo WhatsApp</small></p></div>
-            <div><span>📍</span><p><strong>Entrega local</strong><small>Consulte seu bairro</small></p></div>
-            <div><span>🏪</span><p><strong>Retire na loja</strong><small>Escolha como receber</small></p></div>
+            <div><span>📍</span><p><strong>Entrega local</strong><small>{neighborhoods.length ? `${neighborhoods.length} bairros atendidos` : "Consulte seu bairro"}</small></p></div>
+            <div><span>🏪</span><p><strong>Retire na loja</strong><small>{settings.hours || "Escolha como receber"}</small></p></div>
           </section>
 
           <section className="products-section" id="produtos">
@@ -230,6 +232,7 @@ export default function Home() {
         <header><button onClick={() => { setCheckoutOpen(false); setCartOpen(true); }}>← Carrinho</button><div><span>ÚLTIMA ETAPA</span><h2>Como você quer receber?</h2></div><button className="checkout-close" onClick={() => setCheckoutOpen(false)}>×</button></header>
         <div className="checkout-body"><div className="checkout-form">
           <div className="fulfillment-options"><button className={customer.fulfillment === "retirada" ? "active" : ""} onClick={() => setCustomer({ ...customer, fulfillment: "retirada" })}><b>🏪 Retirada</b><small>Buscar na loja</small></button><button className={customer.fulfillment === "entrega" ? "active" : ""} onClick={() => setCustomer({ ...customer, fulfillment: "entrega" })}><b>🛵 Entrega</b><small>Receber em casa</small></button></div>
+          {customer.fulfillment === "retirada" && hasStoreInfo && <div className="pickup-info">{settings.address && <p><span>Endereço</span><strong>{settings.address}</strong></p>}{settings.hours && <p><span>Horário</span><strong>{settings.hours}</strong></p>}</div>}
           <label>Seu nome<input value={customer.name} onChange={e => setCustomer({ ...customer, name: e.target.value })} placeholder="Nome de quem receberá" /></label><label>Telefone<input value={customer.phone} onChange={e => setCustomer({ ...customer, phone: e.target.value })} placeholder="(87) 99999-9999" inputMode="tel" /></label>
           {customer.fulfillment === "entrega" && <><label>Bairro<select value={customer.neighborhoodId} onChange={e => setCustomer({ ...customer, neighborhoodId: e.target.value })}><option value="">Selecione o bairro</option>{neighborhoods.map(neighborhood => <option key={neighborhood.id} value={neighborhood.id}>{neighborhood.name} — {money(neighborhood.deliveryFee)}</option>)}</select><small className="field-help">{settings.delivery_note || "Confira a taxa do seu bairro antes de confirmar."}</small></label><label>Endereço completo<textarea value={customer.address} onChange={e => setCustomer({ ...customer, address: e.target.value })} placeholder="Rua, número, casa e cidade" /></label><label>Ponto de referência<input value={customer.reference} onChange={e => setCustomer({ ...customer, reference: e.target.value })} placeholder="Opcional" /></label></>}
           <label>Observações<textarea value={customer.notes} onChange={e => setCustomer({ ...customer, notes: e.target.value })} placeholder="Ex.: entregar após as 14h" /></label>
