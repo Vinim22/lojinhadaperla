@@ -9,11 +9,14 @@ type Product = {
   categoryId: number | null; category: string; art: string; color: string;
   available: boolean; featured: boolean;
 };
-type Order = { id: number; customerName: string; customerPhone: string; fulfillment: string; subtotal: number; deliveryFee: number; total: number; status: string; createdAt: string };
+type Order = { id: number; customerName: string; customerPhone: string; fulfillment: string; neighborhood?: string | null; subtotal: number; deliveryFee: number; total: number; status: string; createdAt: string };
 type OrderItem = { orderId: number; productName: string; unitPrice: number; quantity: number };
+type Neighborhood = { id: number; name: string; deliveryFee: number; active: boolean };
 type Section = "catalog" | "create" | "categories" | "settings" | "orders";
 
 const emptyForm = { name: "", description: "", price: "", oldPrice: "", categoryId: "", art: "▣", color: "#f3eef2", available: true, featured: false };
+const emptySettings = { store_name: "Lojinha da Perla", whatsapp: "", address: "", hours: "", delivery_note: "Confira a taxa do seu bairro antes de confirmar." };
+const emptyNeighborhood = { name: "", deliveryFee: "" };
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
 export default function AdminPanel({ userName, signOutHref }: { userName: string; signOutHref: string }) {
@@ -31,6 +34,10 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [settings, setSettings] = useState(emptySettings);
+  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [neighborhoodForm, setNeighborhoodForm] = useState(emptyNeighborhood);
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,6 +91,34 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const updateOrderStatus = async (id: number, nextStatus: string) => {
     const response = await fetch("/api/orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status: nextStatus }) });
     if (response.ok) { setMessage("Status do pedido atualizado."); await loadOrders(); }
+  };
+  const loadSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    const response = await fetch("/api/admin/settings", { cache: "no-store" });
+    if (response.ok) {
+      const data = await response.json();
+      setSettings({ ...emptySettings, ...(data.settings || {}) });
+      setNeighborhoods(data.neighborhoods || []);
+    } else setMessage("Não foi possível carregar as configurações.");
+    setSettingsLoading(false);
+  }, []);
+  useEffect(() => { if (section === "settings") void loadSettings(); }, [section, loadSettings]);
+  const saveSettings = async () => {
+    setSaving(true); setMessage("");
+    const response = await fetch("/api/admin/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ settings }) });
+    setSaving(false);
+    setMessage(response.ok ? "Configurações salvas." : "Não foi possível salvar as configurações.");
+  };
+  const addNeighborhood = async (event: FormEvent) => {
+    event.preventDefault(); setSaving(true); setMessage("");
+    const response = await fetch("/api/admin/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: neighborhoodForm.name, deliveryFee: Number(neighborhoodForm.deliveryFee) }) });
+    setSaving(false);
+    if (response.ok) { setNeighborhoodForm(emptyNeighborhood); setMessage("Bairro de entrega salvo."); await loadSettings(); }
+    else setMessage("Confira os dados do bairro.");
+  };
+  const toggleNeighborhood = async (id: number) => {
+    const response = await fetch("/api/admin/settings", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "toggle", id }) });
+    if (response.ok) { setMessage("Bairro atualizado."); await loadSettings(); }
   };
 
   return <div className="admin-app">
@@ -156,8 +191,8 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
       </main>}
 
       {section === "categories" && <main className="admin-page admin-simple-page"><button className="simple-back" onClick={() => setSection("create")}>‹ Voltar ao produto</button><div className="admin-page-heading"><div><small>ORGANIZAÇÃO</small><h1>Categorias</h1><p>Categorias já cadastradas no banco de dados.</p></div></div><section className="category-admin-grid">{categories.map((category, index) => <article key={category.id}><i style={{ background: ["#ffe7ef", "#e7f5ff", "#fff4d8", "#eee8ff"][index % 4] }}>▦</i><div><strong>{category.name}</strong><small>{products.filter(product => product.categoryId === category.id).length} produtos</small></div></article>)}</section></main>}
-      {section === "settings" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>CONFIGURAÇÕES</small><h1>Configurar loja</h1><p>As configurações gerais serão adicionadas na próxima etapa sem alterar o catálogo atual.</p></div></div><section className="coming-card"><i>⚙</i><h2>Área preparada</h2><p>A identidade da loja, WhatsApp, entrega e horários ficarão reunidos aqui.</p></section></main>}
-      {section === "orders" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>GERENCIAMENTO</small><h1>Pedidos</h1><p>Acompanhe e atualize os pedidos recebidos pela loja.</p></div><button className="admin-cta" onClick={loadOrders}>Atualizar</button></div>{ordersLoading ? <p className="admin-empty">Carregando pedidos...</p> : orders.length ? <section className="orders-grid">{orders.map(order => <article key={order.id} className="order-admin-card"><header><div><small>PEDIDO</small><h2>#{order.id}</h2></div><select value={order.status} onChange={event => updateOrderStatus(order.id, event.target.value)}><option value="novo">Novo</option><option value="confirmado">Confirmado</option><option value="preparando">Preparando</option><option value="concluido">Concluído</option><option value="cancelado">Cancelado</option></select></header><div className="order-customer"><strong>{order.customerName}</strong><a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a><small>{order.fulfillment === "entrega" ? "Entrega" : "Retirada na loja"} · {new Date(order.createdAt.replace(" ", "T") + "Z").toLocaleString("pt-BR")}</small></div><div className="order-admin-items">{orderItems.filter(item => item.orderId === order.id).map((item, index) => <p key={`${order.id}-${index}`}><span>{item.quantity}x {item.productName}</span><b>{money(item.unitPrice * item.quantity)}</b></p>)}</div><footer><span>Total</span><strong>{money(order.total)}</strong></footer></article>)}</section> : <section className="coming-card"><i>▣</i><h2>Nenhum pedido registrado</h2><p>Os novos pedidos feitos na loja aparecerão aqui.</p></section>}</main>}
+      {section === "settings" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>CONFIGURAÇÕES</small><h1>Configurar loja</h1><p>Controle os dados que aparecem na vitrine e as opções de entrega.</p></div><button className="admin-cta" onClick={saveSettings} disabled={saving || settingsLoading}>{saving ? "Salvando..." : "Salvar loja"}</button></div><section className="settings-grid"><form className="settings-card" onSubmit={event => { event.preventDefault(); void saveSettings(); }}><header><i>⚙</i><div><h2>Dados da loja</h2><p>Essas informações alimentam a vitrine e os links de atendimento.</p></div></header><label>Nome da loja<input value={settings.store_name} onChange={e => setSettings({ ...settings, store_name: e.target.value })} placeholder="Lojinha da Perla" /></label><label>WhatsApp<input value={settings.whatsapp} onChange={e => setSettings({ ...settings, whatsapp: e.target.value })} placeholder="Ex.: 87999999999" inputMode="tel" /></label><label>Endereço<input value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} placeholder="Rua, número e cidade" /></label><label>Horário de atendimento<input value={settings.hours} onChange={e => setSettings({ ...settings, hours: e.target.value })} placeholder="Seg a sáb, 8h às 18h" /></label><label>Recado de entrega<textarea value={settings.delivery_note} onChange={e => setSettings({ ...settings, delivery_note: e.target.value })} placeholder="Mensagem curta para o checkout" /></label></form><section className="settings-card"><header><i>⌂</i><div><h2>Bairros de entrega</h2><p>Cadastre taxas por bairro e desative rotas temporariamente.</p></div></header><form className="neighborhood-form" onSubmit={addNeighborhood}><input value={neighborhoodForm.name} onChange={e => setNeighborhoodForm({ ...neighborhoodForm, name: e.target.value })} placeholder="Bairro" required /><div className="money-input"><span>R$</span><input value={neighborhoodForm.deliveryFee} onChange={e => setNeighborhoodForm({ ...neighborhoodForm, deliveryFee: e.target.value })} placeholder="0,00" min="0" step="0.01" type="number" required /></div><button disabled={saving}>Adicionar</button></form><div className="neighborhood-list">{neighborhoods.length ? neighborhoods.map(neighborhood => <article key={neighborhood.id} className={!neighborhood.active ? "inactive" : ""}><div><strong>{neighborhood.name}</strong><small>{money(neighborhood.deliveryFee)}</small></div><button onClick={() => toggleNeighborhood(neighborhood.id)}>{neighborhood.active ? "Ativo" : "Inativo"}</button></article>) : <p className="admin-empty">Nenhum bairro cadastrado ainda.</p>}</div></section></section></main>}
+      {section === "orders" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>GERENCIAMENTO</small><h1>Pedidos</h1><p>Acompanhe e atualize os pedidos recebidos pela loja.</p></div><button className="admin-cta" onClick={loadOrders}>Atualizar</button></div>{ordersLoading ? <p className="admin-empty">Carregando pedidos...</p> : orders.length ? <section className="orders-grid">{orders.map(order => <article key={order.id} className="order-admin-card"><header><div><small>PEDIDO</small><h2>#{order.id}</h2></div><select value={order.status} onChange={event => updateOrderStatus(order.id, event.target.value)}><option value="novo">Novo</option><option value="confirmado">Confirmado</option><option value="preparando">Preparando</option><option value="concluido">Concluído</option><option value="cancelado">Cancelado</option></select></header><div className="order-customer"><strong>{order.customerName}</strong><a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a><small>{order.fulfillment === "entrega" ? `Entrega${order.neighborhood ? ` · ${order.neighborhood}` : ""}` : "Retirada na loja"} · {new Date(order.createdAt.replace(" ", "T") + "Z").toLocaleString("pt-BR")}</small></div><div className="order-admin-items">{orderItems.filter(item => item.orderId === order.id).map((item, index) => <p key={`${order.id}-${index}`}><span>{item.quantity}x {item.productName}</span><b>{money(item.unitPrice * item.quantity)}</b></p>)}</div><div className="order-totals"><p><span>Produtos</span><b>{money(order.subtotal)}</b></p>{order.deliveryFee > 0 && <p><span>Entrega</span><b>{money(order.deliveryFee)}</b></p>}</div><footer><span>Total</span><strong>{money(order.total)}</strong></footer></article>)}</section> : <section className="coming-card"><i>▣</i><h2>Nenhum pedido registrado</h2><p>Os novos pedidos feitos na loja aparecerão aqui.</p></section>}</main>}
     </div>
   </div>;
 }

@@ -27,6 +27,15 @@ async function initializeCatalog() {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, icon TEXT NOT NULL DEFAULT '▣', color TEXT NOT NULL DEFAULT '#f3eef2', position INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
     db.prepare("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', price REAL NOT NULL, old_price REAL, category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL, art TEXT NOT NULL DEFAULT '▣', color TEXT NOT NULL DEFAULT '#f3eef2', available INTEGER NOT NULL DEFAULT 1, featured INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS neighborhoods (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, delivery_fee REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS store_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+  ]);
+  await db.batch([
+    db.prepare("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('store_name', 'Lojinha da Perla')"),
+    db.prepare("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('whatsapp', '')"),
+    db.prepare("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('address', '')"),
+    db.prepare("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('hours', '')"),
+    db.prepare("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('delivery_note', 'Confira a taxa do seu bairro antes de confirmar.')"),
   ]);
   const count = await db.prepare("SELECT COUNT(*) AS total FROM categories").first<{ total: number }>();
   if (!count?.total) {
@@ -38,9 +47,12 @@ async function initializeCatalog() {
 export async function GET() {
   await initializeCatalog();
   const db = await getDatabase();
-  const [categoryResult, productResult] = await db.batch([
+  const [categoryResult, productResult, settingsResult, neighborhoodResult] = await db.batch([
     db.prepare("SELECT name, icon, color FROM categories WHERE active = 1 ORDER BY position, name"),
     db.prepare("SELECT p.id, p.name, p.description, p.price, p.old_price AS oldPrice, COALESCE(c.name, 'Sem categoria') AS category, p.art, p.color FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.available = 1 ORDER BY p.created_at DESC, p.id DESC"),
+    db.prepare("SELECT key, value FROM store_settings"),
+    db.prepare("SELECT id, name, delivery_fee AS deliveryFee FROM neighborhoods WHERE active = 1 ORDER BY name"),
   ]);
-  return Response.json({ categories: categoryResult.results, products: productResult.results });
+  const settings = Object.fromEntries((settingsResult.results || []).map((item: any) => [item.key, item.value]));
+  return Response.json({ categories: categoryResult.results, products: productResult.results, settings, neighborhoods: neighborhoodResult.results });
 }

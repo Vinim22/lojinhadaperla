@@ -13,6 +13,9 @@ type Product = {
   description?: string;
 };
 
+type Neighborhood = { id: number; name: string; deliveryFee: number };
+type StoreSettings = { store_name?: string; whatsapp?: string; address?: string; hours?: string; delivery_note?: string };
+
 const fallbackCategories = [
   { name: "Ofertas", icon: "✦", color: "#ffe3eb" },
   { name: "Limpeza", icon: "🧴", color: "#dff4ff" },
@@ -35,6 +38,12 @@ const fallbackProducts: Product[] = [
 
 const money = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
+const whatsappLink = (phone?: string, text?: string) => {
+  const digits = String(phone || "").replace(/\D/g, "");
+  const target = digits ? `55${digits.replace(/^55/, "")}` : "5500000000000";
+  return `https://wa.me/${target}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
+};
 
 function Header({ products, cartCount, cartTotal, onCart, onFavorites, onProduct, onCategory, onSearch }: { products: Product[]; cartCount: number; cartTotal: number; onCart: () => void; onFavorites: () => void; onProduct: (product: Product) => void; onCategory: (category: string) => void; onSearch: (query: string) => void }) {
   const [query, setQuery] = useState("");
@@ -104,6 +113,8 @@ function ProductCard({ product, onAdd, favorite, onFavorite, onOpen }: { product
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(fallbackProducts);
   const [categories, setCategories] = useState(fallbackCategories);
+  const [settings, setSettings] = useState<StoreSettings>({ store_name: "Lojinha da Perla", whatsapp: "" });
+  const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
   const [cart, setCart] = useState<Product[]>([]);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [view, setView] = useState<"store" | "favorites" | "product" | "search">("store");
@@ -113,8 +124,8 @@ export default function Home() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [orderError, setOrderError] = useState("");
-  const [completedOrder, setCompletedOrder] = useState<number | null>(null);
-  const [customer, setCustomer] = useState({ name: "", phone: "", fulfillment: "retirada", address: "", reference: "", notes: "" });
+  const [completedOrder, setCompletedOrder] = useState<{ id: number; total: number } | null>(null);
+  const [customer, setCustomer] = useState({ name: "", phone: "", fulfillment: "retirada", neighborhoodId: "", address: "", reference: "", notes: "" });
   const [hydrated, setHydrated] = useState(false);
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,12 +135,18 @@ export default function Home() {
   const filteredProducts = activeCategory === "Todos" ? products : products.filter((product) => product.category === activeCategory || activeCategory === "Ofertas" && product.oldPrice);
   const cartTotal = useMemo(() => cart.reduce((total, product) => total + product.price, 0), [cart]);
   const cartItems = useMemo(() => products.map(product => ({ product, quantity: cart.filter(item => item.id === product.id).length })).filter(item => item.quantity > 0), [cart]);
+  const selectedNeighborhood = neighborhoods.find(neighborhood => String(neighborhood.id) === customer.neighborhoodId);
+  const deliveryFee = customer.fulfillment === "entrega" && selectedNeighborhood ? selectedNeighborhood.deliveryFee : 0;
+  const orderTotal = Number((cartTotal + deliveryFee).toFixed(2));
+  const storeName = settings.store_name || "Lojinha da Perla";
   const favoriteProducts = products.filter(product => favorites.includes(product.id));
   useEffect(() => {
     try { setCart(JSON.parse(localStorage.getItem("perla-cart") || "[]")); setFavorites(JSON.parse(localStorage.getItem("perla-favorites") || "[]")); setRecentIds(JSON.parse(localStorage.getItem("perla-recents") || "[]")); } catch {}
     fetch("/api/catalog").then(response => response.ok ? response.json() : Promise.reject()).then(data => {
       if (data.products?.length) setProducts(data.products);
       if (data.categories?.length) setCategories([{ name: "Ofertas", icon: "✦", color: "#ffe3eb" }, ...data.categories]);
+      if (data.settings) setSettings(data.settings);
+      if (data.neighborhoods) setNeighborhoods(data.neighborhoods);
     }).catch(() => {});
     setHydrated(true);
   }, []);
@@ -147,16 +164,16 @@ export default function Home() {
   const relatedProducts = selectedProduct ? products.filter(product => product.category === selectedProduct.category && product.id !== selectedProduct.id).slice(0, 8) : [];
   const orderText = useMemo(() => {
     const lines = cartItems.map(({ product, quantity }) => `• ${quantity}x ${product.name} — ${money(product.price * quantity)}`);
-    return ["Olá! Quero fazer este pedido na Lojinha da Perla:", "", ...lines, "", `Total: ${money(cartTotal)}`, `Recebimento: ${customer.fulfillment === "entrega" ? "Entrega" : "Retirada na loja"}`, customer.name && `Cliente: ${customer.name}`, customer.phone && `Telefone: ${customer.phone}`, customer.fulfillment === "entrega" && customer.address && `Endereço: ${customer.address}`, customer.reference && `Referência: ${customer.reference}`, customer.notes && `Observações: ${customer.notes}`].filter(Boolean).join("\n");
-  }, [cartItems, cartTotal, customer]);
+    return [`Olá! Quero fazer este pedido na ${storeName}:`, "", ...lines, "", `Produtos: ${money(cartTotal)}`, deliveryFee > 0 && `Entrega: ${money(deliveryFee)}`, `Total: ${money(orderTotal)}`, `Recebimento: ${customer.fulfillment === "entrega" ? "Entrega" : "Retirada na loja"}`, selectedNeighborhood && `Bairro: ${selectedNeighborhood.name}`, customer.name && `Cliente: ${customer.name}`, customer.phone && `Telefone: ${customer.phone}`, customer.fulfillment === "entrega" && customer.address && `Endereço: ${customer.address}`, customer.reference && `Referência: ${customer.reference}`, customer.notes && `Observações: ${customer.notes}`].filter(Boolean).join("\n");
+  }, [cartItems, cartTotal, customer, deliveryFee, orderTotal, selectedNeighborhood, storeName]);
   const submitOrder = async () => {
     setSubmittingOrder(true); setOrderError("");
-    const response = await fetch("/api/orders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerName: customer.name, customerPhone: customer.phone, fulfillment: customer.fulfillment, items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })) }) });
+    const response = await fetch("/api/orders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerName: customer.name, customerPhone: customer.phone, fulfillment: customer.fulfillment, neighborhoodId: customer.neighborhoodId ? Number(customer.neighborhoodId) : null, items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })) }) });
     const data = await response.json().catch(() => ({}));
     setSubmittingOrder(false);
     if (!response.ok) { setOrderError(data.error || "Não foi possível registrar o pedido. Tente novamente."); return; }
     await navigator.clipboard.writeText(`Pedido #${data.orderId}\n${orderText}`).catch(() => {});
-    setCompletedOrder(data.orderId); setCart([]);
+    setCompletedOrder({ id: data.orderId, total: data.total || orderTotal }); setCart([]);
   };
   const productUrl = selectedProduct && typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}#produto-${selectedProduct.id}` : "";
   const shareText = selectedProduct ? `${selectedProduct.name} — ${money(selectedProduct.price)}\n${productUrl}` : "";
@@ -175,7 +192,7 @@ export default function Home() {
               <span style={{ background: category.color }}>{category.icon}</span>{category.name}
             </button>
           ))}
-          <div className="help-card"><span>💬</span><strong>Precisa de ajuda?</strong><small>Fale com a gente pelo WhatsApp</small><a href="https://wa.me/5500000000000">Chamar no WhatsApp</a></div>
+          <div className="help-card"><span>💬</span><strong>Precisa de ajuda?</strong><small>Fale com a gente pelo WhatsApp</small><a href={whatsappLink(settings.whatsapp, `Olá! Vim pela ${storeName} e preciso de ajuda.`)}>Chamar no WhatsApp</a></div>
         </aside>
 
         <div className="store-content">
@@ -208,21 +225,21 @@ export default function Home() {
       {cartOpen && <div className="cart-backdrop" onClick={() => setCartOpen(false)}><aside className="cart-drawer" onClick={event => event.stopPropagation()} aria-label="Carrinho"><div className="cart-title"><div><span>SEU PEDIDO</span><h2>Carrinho</h2></div><button onClick={() => setCartOpen(false)} aria-label="Fechar carrinho">×</button></div>{cartItems.length ? <><div className="cart-list">{cartItems.map(({ product, quantity }) => <div className="cart-item" key={product.id}><span style={{ background: product.color }}>{product.art}</span><div><strong>{product.name}</strong><small>{money(product.price)} cada</small><div className="quantity"><button onClick={() => removeOne(product.id)}>−</button><b>{quantity}</b><button onClick={() => setCart(current => [...current, product])}>+</button></div></div><strong>{money(product.price * quantity)}</strong></div>)}</div><div className="cart-footer"><p><span>Total</span><strong>{money(cartTotal)}</strong></p><button className="checkout-button" onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}>Continuar pedido</button><button className="clear-cart" onClick={() => setCart([])}>Esvaziar carrinho</button></div></> : <div className="empty-cart"><span>🛒</span><h3>Seu carrinho está vazio</h3><p>Adicione produtos para montar seu pedido.</p><button onClick={() => setCartOpen(false)}>Continuar comprando</button></div>}</aside></div>}
 
       {checkoutOpen && <div className="checkout-backdrop"><section className="checkout-modal" role="dialog" aria-modal="true" aria-label="Finalizar pedido">
-        {completedOrder ? <div className="order-success"><span>✓</span><small>PEDIDO REGISTRADO</small><h2>Pedido #{completedOrder}</h2><p>Recebemos seu pedido. O resumo foi copiado para você continuar o atendimento pelo WhatsApp.</p><button onClick={() => { setCheckoutOpen(false); setCompletedOrder(null); setCustomer({ name: "", phone: "", fulfillment: "retirada", address: "", reference: "", notes: "" }); }}>Voltar para a loja</button></div> : <>
+        {completedOrder ? <div className="order-success"><span>✓</span><small>PEDIDO REGISTRADO</small><h2>Pedido #{completedOrder.id}</h2><p>Recebemos seu pedido de {money(completedOrder.total)}. O resumo foi copiado para você continuar o atendimento pelo WhatsApp.</p><a href={whatsappLink(settings.whatsapp, `Pedido #${completedOrder.id}\n${orderText}`)} target="_blank" rel="noreferrer">Continuar no WhatsApp</a><button onClick={() => { setCheckoutOpen(false); setCompletedOrder(null); setCustomer({ name: "", phone: "", fulfillment: "retirada", neighborhoodId: "", address: "", reference: "", notes: "" }); }}>Voltar para a loja</button></div> : <>
         <header><button onClick={() => { setCheckoutOpen(false); setCartOpen(true); }}>← Carrinho</button><div><span>ÚLTIMA ETAPA</span><h2>Como você quer receber?</h2></div><button className="checkout-close" onClick={() => setCheckoutOpen(false)}>×</button></header>
         <div className="checkout-body"><div className="checkout-form">
           <div className="fulfillment-options"><button className={customer.fulfillment === "retirada" ? "active" : ""} onClick={() => setCustomer({ ...customer, fulfillment: "retirada" })}><b>🏪 Retirada</b><small>Buscar na loja</small></button><button className={customer.fulfillment === "entrega" ? "active" : ""} onClick={() => setCustomer({ ...customer, fulfillment: "entrega" })}><b>🛵 Entrega</b><small>Receber em casa</small></button></div>
           <label>Seu nome<input value={customer.name} onChange={e => setCustomer({ ...customer, name: e.target.value })} placeholder="Nome de quem receberá" /></label><label>Telefone<input value={customer.phone} onChange={e => setCustomer({ ...customer, phone: e.target.value })} placeholder="(87) 99999-9999" inputMode="tel" /></label>
-          {customer.fulfillment === "entrega" && <><label>Endereço completo<textarea value={customer.address} onChange={e => setCustomer({ ...customer, address: e.target.value })} placeholder="Rua, número, bairro e cidade" /></label><label>Ponto de referência<input value={customer.reference} onChange={e => setCustomer({ ...customer, reference: e.target.value })} placeholder="Opcional" /></label></>}
+          {customer.fulfillment === "entrega" && <><label>Bairro<select value={customer.neighborhoodId} onChange={e => setCustomer({ ...customer, neighborhoodId: e.target.value })}><option value="">Selecione o bairro</option>{neighborhoods.map(neighborhood => <option key={neighborhood.id} value={neighborhood.id}>{neighborhood.name} — {money(neighborhood.deliveryFee)}</option>)}</select><small className="field-help">{settings.delivery_note || "Confira a taxa do seu bairro antes de confirmar."}</small></label><label>Endereço completo<textarea value={customer.address} onChange={e => setCustomer({ ...customer, address: e.target.value })} placeholder="Rua, número, casa e cidade" /></label><label>Ponto de referência<input value={customer.reference} onChange={e => setCustomer({ ...customer, reference: e.target.value })} placeholder="Opcional" /></label></>}
           <label>Observações<textarea value={customer.notes} onChange={e => setCustomer({ ...customer, notes: e.target.value })} placeholder="Ex.: entregar após as 14h" /></label>
-        </div><aside className="order-review"><span>RESUMO</span>{cartItems.map(({ product, quantity }) => <p key={product.id}><small>{quantity}x {product.name}</small><b>{money(product.price * quantity)}</b></p>)}<div><span>Total</span><strong>{money(cartTotal)}</strong></div>{orderError && <p className="order-error" role="alert">{orderError}</p>}<button onClick={submitOrder} disabled={submittingOrder || !customer.name.trim() || !customer.phone.trim() || customer.fulfillment === "entrega" && !customer.address.trim()}>{submittingOrder ? "Registrando..." : "Confirmar pedido"}</button><small className="pending-whatsapp">O pedido ficará salvo no painel. O resumo também será copiado para continuar pelo WhatsApp.</small></aside></div>
+        </div><aside className="order-review"><span>RESUMO</span>{cartItems.map(({ product, quantity }) => <p key={product.id}><small>{quantity}x {product.name}</small><b>{money(product.price * quantity)}</b></p>)}<p><small>Produtos</small><b>{money(cartTotal)}</b></p>{customer.fulfillment === "entrega" && <p><small>Entrega{selectedNeighborhood ? ` · ${selectedNeighborhood.name}` : ""}</small><b>{selectedNeighborhood ? money(deliveryFee) : "Escolha o bairro"}</b></p>}<div><span>Total</span><strong>{money(orderTotal)}</strong></div>{orderError && <p className="order-error" role="alert">{orderError}</p>}<button onClick={submitOrder} disabled={submittingOrder || !customer.name.trim() || !customer.phone.trim() || customer.fulfillment === "entrega" && (!customer.address.trim() || !customer.neighborhoodId)}>{submittingOrder ? "Registrando..." : "Confirmar pedido"}</button><small className="pending-whatsapp">O pedido ficará salvo no painel. O resumo também será copiado para continuar pelo WhatsApp.</small></aside></div>
         </>}
       </section></div>}
 
       <nav className="mobile-nav" aria-label="Navegação principal">
         <button onClick={() => goHome()} className={view === "store" ? "active" : ""}><span>⌂</span><small>Início</small></button>
         <button onClick={() => setCartOpen(true)}><span>🛒</span><small>Carrinho</small>{cart.length > 0 && <b>{cart.length}</b>}</button>
-        <a href="https://wa.me/5500000000000"><span>◉</span><small>WhatsApp</small></a>
+        <a href={whatsappLink(settings.whatsapp, `Olá! Vim pela ${storeName}.`)}><span>◉</span><small>WhatsApp</small></a>
       </nav>
     </div>
   );

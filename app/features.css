@@ -32,7 +32,9 @@
 .order-success small { margin-top: 22px; color: var(--pink); font-weight: 800; letter-spacing: .12em; }
 .order-success h2 { margin: 8px 0 10px; font-size: 32px; }
 .order-success p { max-width: 440px; margin: 0; color: var(--muted); line-height: 1.6; }
-.order-success button { margin-top: 24px; padding: 13px 22px; border: 0; border-radius: 12px; color: white; background: var(--pink); font-weight: 750; }
+.order-success a,
+.order-success button { margin-top: 24px; padding: 13px 22px; border: 0; border-radius: 12px; color: white; background: var(--pink); font-weight: 750; text-decoration: none; }
+.order-success button { margin-top: 10px; color: var(--ink); background: #f5edf2; }
 
 .orders-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .order-admin-card { overflow: hidden; border: 1px solid #e5e1e6; border-radius: 14px; background: white; }
@@ -47,8 +49,33 @@
 .order-admin-items p { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 0; border-top: 1px solid #f0edf1; font-size: 12px; }
 .order-admin-card footer { display: flex; justify-content: space-between; padding: 15px 20px; background: #faf8fa; }
 .order-admin-card footer strong { font-size: 18px; }
+.order-totals { padding: 8px 20px 0; border-top: 1px solid #f0edf1; }
+.order-totals p { display: flex; justify-content: space-between; margin: 0; padding: 4px 0; color: #6f6670; font-size: 12px; }
+
+.settings-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 18px; align-items: start; }
+.settings-card { display: grid; gap: 16px; padding: 22px; border: 1px solid #e5e1e6; border-radius: 14px; background: white; }
+.settings-card header { display: flex; gap: 14px; align-items: flex-start; }
+.settings-card header i { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; color: var(--pink); background: #fff0f5; font-style: normal; }
+.settings-card h2 { margin: 0 0 4px; }
+.settings-card p { margin: 0; color: var(--muted); }
+.settings-card label { display: grid; gap: 7px; color: #645d65; font-size: 12px; font-weight: 750; }
+.settings-card input,
+.settings-card textarea,
+.neighborhood-form input { width: 100%; border: 1px solid #ddd7df; border-radius: 10px; padding: 12px 13px; font: inherit; background: #fff; }
+.settings-card textarea { min-height: 90px; resize: vertical; }
+.neighborhood-form { display: grid; grid-template-columns: 1fr 150px auto; gap: 10px; align-items: center; }
+.neighborhood-form button,
+.neighborhood-list button { border: 0; border-radius: 10px; padding: 12px 14px; color: white; background: var(--purple); font-weight: 800; }
+.neighborhood-list { display: grid; gap: 10px; }
+.neighborhood-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px; border: 1px solid #eee9ef; border-radius: 12px; background: #fbfafb; }
+.neighborhood-list article.inactive { opacity: .58; }
+.neighborhood-list strong,
+.neighborhood-list small { display: block; }
+.neighborhood-list small { color: var(--muted); margin-top: 3px; }
 
 @media (max-width: 760px) {
   .orders-grid { grid-template-columns: 1fr; }
   .order-success { min-height: 420px; padding: 30px 20px; }
+  .settings-grid,
+  .neighborhood-form { grid-template-columns: 1fr; }
 }
