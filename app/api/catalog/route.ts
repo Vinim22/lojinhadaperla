@@ -27,8 +27,10 @@ async function initializeCatalog() {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, icon TEXT NOT NULL DEFAULT '▣', color TEXT NOT NULL DEFAULT '#f3eef2', position INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
     db.prepare("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', price REAL NOT NULL, old_price REAL, category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL, art TEXT NOT NULL DEFAULT '▣', color TEXT NOT NULL DEFAULT '#f3eef2', available INTEGER NOT NULL DEFAULT 1, featured INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS product_categories (product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE, category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE, PRIMARY KEY (product_id, category_id))"),
     db.prepare("CREATE TABLE IF NOT EXISTS neighborhoods (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, delivery_fee REAL NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1)"),
     db.prepare("CREATE TABLE IF NOT EXISTS store_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+    db.prepare("INSERT OR IGNORE INTO product_categories (product_id, category_id) SELECT id, category_id FROM products WHERE category_id IS NOT NULL"),
   ]);
   await db.batch([
     db.prepare("INSERT OR IGNORE INTO store_settings (key, value) VALUES ('store_name', 'Lojinha da Perla')"),
@@ -49,7 +51,7 @@ export async function GET() {
   const db = await getDatabase();
   const [categoryResult, productResult, settingsResult, neighborhoodResult] = await db.batch([
     db.prepare("SELECT name, icon, color FROM categories WHERE active = 1 ORDER BY position, name"),
-    db.prepare("SELECT p.id, p.name, p.description, p.price, p.old_price AS oldPrice, COALESCE(c.name, 'Sem categoria') AS category, p.art, p.color FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.available = 1 ORDER BY p.created_at DESC, p.id DESC"),
+    db.prepare("SELECT p.id, p.name, p.description, p.price, p.old_price AS oldPrice, COALESCE(GROUP_CONCAT(DISTINCT c.name), 'Sem categoria') AS category, p.art, p.color FROM products p LEFT JOIN product_categories pc ON pc.product_id = p.id LEFT JOIN categories c ON c.id = pc.category_id AND c.active = 1 WHERE p.available = 1 GROUP BY p.id ORDER BY p.created_at DESC, p.id DESC"),
     db.prepare("SELECT key, value FROM store_settings"),
     db.prepare("SELECT id, name, delivery_fee AS deliveryFee FROM neighborhoods WHERE active = 1 ORDER BY name"),
   ]);

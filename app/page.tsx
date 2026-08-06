@@ -132,7 +132,8 @@ export default function Home() {
   const [imageOpen, setImageOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [storeScroll, setStoreScroll] = useState(0);
-  const filteredProducts = activeCategory === "Todos" ? products : products.filter((product) => product.category === activeCategory || activeCategory === "Ofertas" && product.oldPrice);
+  const productCategories = (product: Product) => product.category.split(",").map(category => category.trim()).filter(Boolean);
+  const filteredProducts = activeCategory === "Todos" ? products : products.filter((product) => productCategories(product).includes(activeCategory) || activeCategory === "Ofertas" && product.oldPrice);
   const cartTotal = useMemo(() => cart.reduce((total, product) => total + product.price, 0), [cart]);
   const cartItems = useMemo(() => products.map(product => ({ product, quantity: cart.filter(item => item.id === product.id).length })).filter(item => item.quantity > 0), [cart]);
   const selectedNeighborhood = neighborhoods.find(neighborhood => String(neighborhood.id) === customer.neighborhoodId);

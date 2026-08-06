@@ -91,6 +91,10 @@
 .category-list small { display: block; }
 .category-list small { margin-top: 4px; color: var(--muted); }
 .category-list button { border: 1px solid #e3dde5; border-radius: 10px; padding: 10px 12px; background: #fbfafb; font-weight: 750; }
+.category-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.category-picker button { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e6e0e7; border-radius: 999px; padding: 8px 11px 8px 8px; background: #fbfafb; color: var(--ink); font-weight: 750; }
+.category-picker button.active { border-color: var(--pink); background: #fff1f6; color: var(--pink); }
+.category-picker i { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; font-style: normal; }
 
 @media (max-width: 760px) {
   .orders-grid { grid-template-columns: 1fr; }

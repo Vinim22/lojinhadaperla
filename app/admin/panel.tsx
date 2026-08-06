@@ -4,13 +4,13 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Category = { id: number; name: string; icon: string; color: string; position: number; active: boolean; productCount: number };
-type Product = { id: number; name: string; description: string; price: number; oldPrice: number | null; categoryId: number | null; category: string; art: string; color: string; available: boolean; featured: boolean };
+type Product = { id: number; name: string; description: string; price: number; oldPrice: number | null; categoryId: number | null; categoryIds?: number[]; category: string; art: string; color: string; available: boolean; featured: boolean };
 type Order = { id: number; customerName: string; customerPhone: string; fulfillment: string; neighborhood?: string | null; subtotal: number; deliveryFee: number; total: number; status: string; createdAt: string };
 type OrderItem = { orderId: number; productName: string; unitPrice: number; quantity: number };
 type Neighborhood = { id: number; name: string; deliveryFee: number; active: boolean };
 type Section = "catalog" | "create" | "categories" | "settings" | "orders";
 
-const emptyForm = { name: "", description: "", price: "", oldPrice: "", categoryId: "", art: "▣", color: "#f3eef2", available: true, featured: false };
+const emptyForm = { name: "", description: "", price: "", oldPrice: "", categoryIds: [] as number[], art: "▣", color: "#f3eef2", available: true, featured: false };
 const emptyCategoryForm = { name: "", icon: "▣", color: "#f3eef2", position: "", active: true };
 const emptySettings = { store_name: "Lojinha da Perla", whatsapp: "", address: "", hours: "", delivery_note: "Confira a taxa do seu bairro antes de confirmar." };
 const emptyNeighborhood = { name: "", deliveryFee: "" };
@@ -62,7 +62,7 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const navigate = (next: Section) => { setSection(next); setMessage(""); if (next === "create" && editing) reset(); };
   const edit = (product: Product) => {
     setEditing(product.id);
-    setForm({ name: product.name, description: product.description, price: String(product.price), oldPrice: product.oldPrice == null ? "" : String(product.oldPrice), categoryId: product.categoryId == null ? "" : String(product.categoryId), art: product.art, color: product.color, available: product.available, featured: product.featured });
+    setForm({ name: product.name, description: product.description, price: String(product.price), oldPrice: product.oldPrice == null ? "" : String(product.oldPrice), categoryIds: product.categoryIds?.length ? product.categoryIds : product.categoryId ? [product.categoryId] : [], art: product.art, color: product.color, available: product.available, featured: product.featured });
     setSection("create");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -74,7 +74,7 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
 
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setSaving(true); setMessage("");
-    const response = await fetch("/api/admin/products", { method: editing ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, id: editing, price: Number(form.price), oldPrice: form.oldPrice ? Number(form.oldPrice) : null, categoryId: form.categoryId ? Number(form.categoryId) : null }) });
+    const response = await fetch("/api/admin/products", { method: editing ? "PUT" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...form, id: editing, price: Number(form.price), oldPrice: form.oldPrice ? Number(form.oldPrice) : null }) });
     setSaving(false);
     if (!response.ok) { setMessage("Confira os dados e tente novamente."); return; }
     setMessage(editing ? "Produto atualizado com sucesso." : "Produto cadastrado com sucesso.");
@@ -98,6 +98,14 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const toggleCategory = async (id: number) => {
     const response = await fetch("/api/admin/products", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ resource: "category", action: "toggle", id }) });
     if (response.ok) { setMessage("Categoria atualizada."); await load(); }
+  };
+  const toggleProductCategory = (categoryId: number) => {
+    setForm(current => ({
+      ...current,
+      categoryIds: current.categoryIds.includes(categoryId)
+        ? current.categoryIds.filter(id => id !== categoryId)
+        : [...current.categoryIds, categoryId],
+    }));
   };
 
   const loadOrders = useCallback(async () => {
@@ -204,7 +212,7 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
             </div>
           </section>
           <aside className="form-column form-side">
-            <div className="form-card"><header><span>3</span><div><h2>Organização</h2><p>Defina onde o produto aparece.</p></div></header><label>Categoria<select value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}><option value="">Sem categoria</option>{categories.filter(category => category.active).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><button type="button" className="outline-action" onClick={() => setSection("categories")}>＋ Gerenciar categorias</button></div>
+            <div className="form-card"><header><span>3</span><div><h2>Organização</h2><p>Escolha uma ou mais categorias para o produto aparecer.</p></div></header><div className="category-picker">{categories.filter(category => category.active).map(category => <button type="button" key={category.id} className={form.categoryIds.includes(category.id) ? "active" : ""} onClick={() => toggleProductCategory(category.id)}><i style={{ background: category.color }}>{category.icon || "▣"}</i><span>{category.name}</span></button>)}</div><button type="button" className="outline-action" onClick={() => setSection("categories")}>＋ Gerenciar categorias</button></div>
             <div className="form-card"><header><span>4</span><div><h2>Publicação</h2><p>Controle a visibilidade na loja.</p></div></header><label className="switch-row"><span><strong>Produto disponível</strong><small>Aparece para os clientes</small></span><input type="checkbox" checked={form.available} onChange={e => setForm({ ...form, available: e.target.checked })} /></label><label className="switch-row"><span><strong>Produto em destaque</strong><small>Recebe mais visibilidade</small></span><input type="checkbox" checked={form.featured} onChange={e => setForm({ ...form, featured: e.target.checked })} /></label></div>
             <div className="form-submit"><button type="button" onClick={() => { reset(); setSection("catalog"); }}>Cancelar</button><button className="admin-cta" disabled={saving}>{saving ? "Salvando..." : editing ? "Salvar alterações" : "Cadastrar produto"}</button></div>
           </aside>
