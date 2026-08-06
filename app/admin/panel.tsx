@@ -9,6 +9,8 @@ type Product = {
   categoryId: number | null; category: string; art: string; color: string;
   available: boolean; featured: boolean;
 };
+type Order = { id: number; customerName: string; customerPhone: string; fulfillment: string; subtotal: number; deliveryFee: number; total: number; status: string; createdAt: string };
+type OrderItem = { orderId: number; productName: string; unitPrice: number; quantity: number };
 type Section = "catalog" | "create" | "categories" | "settings" | "orders";
 
 const emptyForm = { name: "", description: "", price: "", oldPrice: "", categoryId: "", art: "▣", color: "#f3eef2", available: true, featured: false };
@@ -26,6 +28,9 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [accountOpen, setAccountOpen] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +73,18 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
     if (response.ok) { setMessage(actionName === "duplicate" ? "Produto duplicado." : actionName === "delete" ? "Produto excluído." : "Disponibilidade alterada."); await load(); }
   };
   const navigate = (next: Section) => { setSection(next); setMessage(""); if (next === "create" && editing) reset(); };
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    const response = await fetch("/api/orders", { cache: "no-store" });
+    if (response.ok) { const data = await response.json(); setOrders(data.orders || []); setOrderItems(data.items || []); }
+    else setMessage("Não foi possível carregar os pedidos.");
+    setOrdersLoading(false);
+  }, []);
+  useEffect(() => { if (section === "orders") void loadOrders(); }, [section, loadOrders]);
+  const updateOrderStatus = async (id: number, nextStatus: string) => {
+    const response = await fetch("/api/orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status: nextStatus }) });
+    if (response.ok) { setMessage("Status do pedido atualizado."); await loadOrders(); }
+  };
 
   return <div className="admin-app">
     <aside className="admin-sidebar" aria-label="Menu administrativo">
@@ -140,7 +157,7 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
 
       {section === "categories" && <main className="admin-page admin-simple-page"><button className="simple-back" onClick={() => setSection("create")}>‹ Voltar ao produto</button><div className="admin-page-heading"><div><small>ORGANIZAÇÃO</small><h1>Categorias</h1><p>Categorias já cadastradas no banco de dados.</p></div></div><section className="category-admin-grid">{categories.map((category, index) => <article key={category.id}><i style={{ background: ["#ffe7ef", "#e7f5ff", "#fff4d8", "#eee8ff"][index % 4] }}>▦</i><div><strong>{category.name}</strong><small>{products.filter(product => product.categoryId === category.id).length} produtos</small></div></article>)}</section></main>}
       {section === "settings" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>CONFIGURAÇÕES</small><h1>Configurar loja</h1><p>As configurações gerais serão adicionadas na próxima etapa sem alterar o catálogo atual.</p></div></div><section className="coming-card"><i>⚙</i><h2>Área preparada</h2><p>A identidade da loja, WhatsApp, entrega e horários ficarão reunidos aqui.</p></section></main>}
-      {section === "orders" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>GERENCIAMENTO</small><h1>Pedidos</h1><p>Acompanhe os pedidos recebidos pela loja.</p></div></div><section className="coming-card"><i>▣</i><h2>Nenhum pedido registrado</h2><p>Os pedidos aparecerão aqui quando o fluxo de WhatsApp for conectado ao histórico.</p></section></main>}
+      {section === "orders" && <main className="admin-page admin-simple-page"><div className="admin-page-heading"><div><small>GERENCIAMENTO</small><h1>Pedidos</h1><p>Acompanhe e atualize os pedidos recebidos pela loja.</p></div><button className="admin-cta" onClick={loadOrders}>Atualizar</button></div>{ordersLoading ? <p className="admin-empty">Carregando pedidos...</p> : orders.length ? <section className="orders-grid">{orders.map(order => <article key={order.id} className="order-admin-card"><header><div><small>PEDIDO</small><h2>#{order.id}</h2></div><select value={order.status} onChange={event => updateOrderStatus(order.id, event.target.value)}><option value="novo">Novo</option><option value="confirmado">Confirmado</option><option value="preparando">Preparando</option><option value="concluido">Concluído</option><option value="cancelado">Cancelado</option></select></header><div className="order-customer"><strong>{order.customerName}</strong><a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a><small>{order.fulfillment === "entrega" ? "Entrega" : "Retirada na loja"} · {new Date(order.createdAt.replace(" ", "T") + "Z").toLocaleString("pt-BR")}</small></div><div className="order-admin-items">{orderItems.filter(item => item.orderId === order.id).map((item, index) => <p key={`${order.id}-${index}`}><span>{item.quantity}x {item.productName}</span><b>{money(item.unitPrice * item.quantity)}</b></p>)}</div><footer><span>Total</span><strong>{money(order.total)}</strong></footer></article>)}</section> : <section className="coming-card"><i>▣</i><h2>Nenhum pedido registrado</h2><p>Os novos pedidos feitos na loja aparecerão aqui.</p></section>}</main>}
     </div>
   </div>;
 }

@@ -1,0 +1,54 @@
+.order-review .order-error {
+  display: block;
+  margin: 12px 0 0;
+  padding: 10px;
+  border-radius: 10px;
+  color: #a32947;
+  background: #fff0f3;
+  font-size: 12px;
+}
+
+.order-success {
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 45px;
+  text-align: center;
+}
+
+.order-success > span {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: #25a866;
+  font-size: 36px;
+}
+
+.order-success small { margin-top: 22px; color: var(--pink); font-weight: 800; letter-spacing: .12em; }
+.order-success h2 { margin: 8px 0 10px; font-size: 32px; }
+.order-success p { max-width: 440px; margin: 0; color: var(--muted); line-height: 1.6; }
+.order-success button { margin-top: 24px; padding: 13px 22px; border: 0; border-radius: 12px; color: white; background: var(--pink); font-weight: 750; }
+
+.orders-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.order-admin-card { overflow: hidden; border: 1px solid #e5e1e6; border-radius: 14px; background: white; }
+.order-admin-card header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid #eeeaf0; }
+.order-admin-card header small { color: var(--purple); font-size: 9px; font-weight: 850; letter-spacing: .12em; }
+.order-admin-card h2 { margin: 3px 0 0; }
+.order-admin-card select { padding: 9px 12px; border: 1px solid #ddd7df; border-radius: 9px; background: #faf9fa; }
+.order-customer { display: grid; gap: 4px; padding: 16px 20px; }
+.order-customer a { color: var(--purple); font-size: 12px; text-decoration: none; }
+.order-customer small { color: #948d96; }
+.order-admin-items { padding: 0 20px; }
+.order-admin-items p { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 0; border-top: 1px solid #f0edf1; font-size: 12px; }
+.order-admin-card footer { display: flex; justify-content: space-between; padding: 15px 20px; background: #faf8fa; }
+.order-admin-card footer strong { font-size: 18px; }
+
+@media (max-width: 760px) {
+  .orders-grid { grid-template-columns: 1fr; }
+  .order-success { min-height: 420px; padding: 30px 20px; }
+}

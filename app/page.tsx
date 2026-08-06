@@ -111,6 +111,9 @@ export default function Home() {
   const [recentIds, setRecentIds] = useState<number[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [completedOrder, setCompletedOrder] = useState<number | null>(null);
   const [customer, setCustomer] = useState({ name: "", phone: "", fulfillment: "retirada", address: "", reference: "", notes: "" });
   const [hydrated, setHydrated] = useState(false);
   const [activeCategory, setActiveCategory] = useState("Todos");
@@ -146,9 +149,14 @@ export default function Home() {
     const lines = cartItems.map(({ product, quantity }) => `• ${quantity}x ${product.name} — ${money(product.price * quantity)}`);
     return ["Olá! Quero fazer este pedido na Lojinha da Perla:", "", ...lines, "", `Total: ${money(cartTotal)}`, `Recebimento: ${customer.fulfillment === "entrega" ? "Entrega" : "Retirada na loja"}`, customer.name && `Cliente: ${customer.name}`, customer.phone && `Telefone: ${customer.phone}`, customer.fulfillment === "entrega" && customer.address && `Endereço: ${customer.address}`, customer.reference && `Referência: ${customer.reference}`, customer.notes && `Observações: ${customer.notes}`].filter(Boolean).join("\n");
   }, [cartItems, cartTotal, customer]);
-  const copyOrder = async () => {
-    await navigator.clipboard.writeText(orderText);
-    alert("Resumo copiado. O número do WhatsApp da loja ainda será configurado no painel.");
+  const submitOrder = async () => {
+    setSubmittingOrder(true); setOrderError("");
+    const response = await fetch("/api/orders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerName: customer.name, customerPhone: customer.phone, fulfillment: customer.fulfillment, items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })) }) });
+    const data = await response.json().catch(() => ({}));
+    setSubmittingOrder(false);
+    if (!response.ok) { setOrderError(data.error || "Não foi possível registrar o pedido. Tente novamente."); return; }
+    await navigator.clipboard.writeText(`Pedido #${data.orderId}\n${orderText}`).catch(() => {});
+    setCompletedOrder(data.orderId); setCart([]);
   };
   const productUrl = selectedProduct && typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}#produto-${selectedProduct.id}` : "";
   const shareText = selectedProduct ? `${selectedProduct.name} — ${money(selectedProduct.price)}\n${productUrl}` : "";
@@ -200,13 +208,15 @@ export default function Home() {
       {cartOpen && <div className="cart-backdrop" onClick={() => setCartOpen(false)}><aside className="cart-drawer" onClick={event => event.stopPropagation()} aria-label="Carrinho"><div className="cart-title"><div><span>SEU PEDIDO</span><h2>Carrinho</h2></div><button onClick={() => setCartOpen(false)} aria-label="Fechar carrinho">×</button></div>{cartItems.length ? <><div className="cart-list">{cartItems.map(({ product, quantity }) => <div className="cart-item" key={product.id}><span style={{ background: product.color }}>{product.art}</span><div><strong>{product.name}</strong><small>{money(product.price)} cada</small><div className="quantity"><button onClick={() => removeOne(product.id)}>−</button><b>{quantity}</b><button onClick={() => setCart(current => [...current, product])}>+</button></div></div><strong>{money(product.price * quantity)}</strong></div>)}</div><div className="cart-footer"><p><span>Total</span><strong>{money(cartTotal)}</strong></p><button className="checkout-button" onClick={() => { setCartOpen(false); setCheckoutOpen(true); }}>Continuar pedido</button><button className="clear-cart" onClick={() => setCart([])}>Esvaziar carrinho</button></div></> : <div className="empty-cart"><span>🛒</span><h3>Seu carrinho está vazio</h3><p>Adicione produtos para montar seu pedido.</p><button onClick={() => setCartOpen(false)}>Continuar comprando</button></div>}</aside></div>}
 
       {checkoutOpen && <div className="checkout-backdrop"><section className="checkout-modal" role="dialog" aria-modal="true" aria-label="Finalizar pedido">
+        {completedOrder ? <div className="order-success"><span>✓</span><small>PEDIDO REGISTRADO</small><h2>Pedido #{completedOrder}</h2><p>Recebemos seu pedido. O resumo foi copiado para você continuar o atendimento pelo WhatsApp.</p><button onClick={() => { setCheckoutOpen(false); setCompletedOrder(null); setCustomer({ name: "", phone: "", fulfillment: "retirada", address: "", reference: "", notes: "" }); }}>Voltar para a loja</button></div> : <>
         <header><button onClick={() => { setCheckoutOpen(false); setCartOpen(true); }}>← Carrinho</button><div><span>ÚLTIMA ETAPA</span><h2>Como você quer receber?</h2></div><button className="checkout-close" onClick={() => setCheckoutOpen(false)}>×</button></header>
         <div className="checkout-body"><div className="checkout-form">
           <div className="fulfillment-options"><button className={customer.fulfillment === "retirada" ? "active" : ""} onClick={() => setCustomer({ ...customer, fulfillment: "retirada" })}><b>🏪 Retirada</b><small>Buscar na loja</small></button><button className={customer.fulfillment === "entrega" ? "active" : ""} onClick={() => setCustomer({ ...customer, fulfillment: "entrega" })}><b>🛵 Entrega</b><small>Receber em casa</small></button></div>
           <label>Seu nome<input value={customer.name} onChange={e => setCustomer({ ...customer, name: e.target.value })} placeholder="Nome de quem receberá" /></label><label>Telefone<input value={customer.phone} onChange={e => setCustomer({ ...customer, phone: e.target.value })} placeholder="(87) 99999-9999" inputMode="tel" /></label>
           {customer.fulfillment === "entrega" && <><label>Endereço completo<textarea value={customer.address} onChange={e => setCustomer({ ...customer, address: e.target.value })} placeholder="Rua, número, bairro e cidade" /></label><label>Ponto de referência<input value={customer.reference} onChange={e => setCustomer({ ...customer, reference: e.target.value })} placeholder="Opcional" /></label></>}
           <label>Observações<textarea value={customer.notes} onChange={e => setCustomer({ ...customer, notes: e.target.value })} placeholder="Ex.: entregar após as 14h" /></label>
-        </div><aside className="order-review"><span>RESUMO</span>{cartItems.map(({ product, quantity }) => <p key={product.id}><small>{quantity}x {product.name}</small><b>{money(product.price * quantity)}</b></p>)}<div><span>Total</span><strong>{money(cartTotal)}</strong></div><button onClick={copyOrder} disabled={!customer.name.trim() || !customer.phone.trim() || customer.fulfillment === "entrega" && !customer.address.trim()}>Copiar pedido</button><small className="pending-whatsapp">O envio pelo WhatsApp será ativado quando o número da loja for configurado.</small></aside></div>
+        </div><aside className="order-review"><span>RESUMO</span>{cartItems.map(({ product, quantity }) => <p key={product.id}><small>{quantity}x {product.name}</small><b>{money(product.price * quantity)}</b></p>)}<div><span>Total</span><strong>{money(cartTotal)}</strong></div>{orderError && <p className="order-error" role="alert">{orderError}</p>}<button onClick={submitOrder} disabled={submittingOrder || !customer.name.trim() || !customer.phone.trim() || customer.fulfillment === "entrega" && !customer.address.trim()}>{submittingOrder ? "Registrando..." : "Confirmar pedido"}</button><small className="pending-whatsapp">O pedido ficará salvo no painel. O resumo também será copiado para continuar pelo WhatsApp.</small></aside></div>
+        </>}
       </section></div>}
 
       <nav className="mobile-nav" aria-label="Navegação principal">
