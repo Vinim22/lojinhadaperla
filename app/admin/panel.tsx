@@ -16,6 +16,7 @@ const emptySettings = { store_name: "Lojinha da Perla", whatsapp: "", address: "
 const emptyNeighborhood = { name: "", deliveryFee: "" };
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
+const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const orderWhatsAppLink = (order: Order) => {
   const phone = onlyDigits(order.customerPhone);
   const message = `Olá, ${order.customerName}! Aqui é da Lojinha da Perla. Estou falando sobre o pedido #${order.id}, no total de ${money(order.total)}.`;
@@ -66,7 +67,7 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   useEffect(() => { void load(); }, [load]);
 
   const filteredProducts = useMemo(() => products.filter(product => {
-    const matchesText = `${product.name} ${product.category}`.toLowerCase().includes(query.toLowerCase());
+    const matchesText = normalizeSearch(`${product.name} ${product.category} ${product.description}`).includes(normalizeSearch(query));
     const matchesStatus = status === "all" || (status === "active" ? product.available : !product.available);
     const productCategoryIds = product.categoryIds?.length ? product.categoryIds : product.categoryId ? [product.categoryId] : [];
     const matchesCategory = categoryFilter === "all" || productCategoryIds.includes(Number(categoryFilter));
