@@ -138,6 +138,9 @@ export default function Home() {
   const [shareOpen, setShareOpen] = useState(false);
   const [storeScroll, setStoreScroll] = useState(0);
   const filteredProducts = activeCategory === "Todos" ? products : products.filter((product) => productCategories(product).includes(activeCategory) || activeCategory === "Ofertas" && product.oldPrice);
+  const categoryProductCount = (categoryName: string) => categoryName === "Todos"
+    ? products.length
+    : products.filter(product => productCategories(product).includes(categoryName) || categoryName === "Ofertas" && product.oldPrice).length;
   const cartTotal = useMemo(() => cart.reduce((total, product) => total + product.price, 0), [cart]);
   const cartItems = useMemo(() => products.map(product => ({ product, quantity: cart.filter(item => item.id === product.id).length })).filter(item => item.quantity > 0), [cart]);
   const selectedNeighborhood = neighborhoods.find(neighborhood => String(neighborhood.id) === customer.neighborhoodId);
@@ -214,10 +217,10 @@ export default function Home() {
       <main className="page-shell">
         <aside className="category-sidebar">
           <p>Explore por categoria</p>
-          <button className={activeCategory === "Todos" ? "active" : ""} onClick={() => setActiveCategory("Todos")}><span>⌂</span>Todos os produtos</button>
+          <button className={activeCategory === "Todos" ? "active" : ""} onClick={() => setActiveCategory("Todos")}><span>⌂</span><b>Todos os produtos</b><em>{categoryProductCount("Todos")}</em></button>
           {categories.map((category) => (
             <button key={category.name} className={activeCategory === category.name ? "active" : ""} onClick={() => setActiveCategory(category.name)}>
-              <span style={{ background: category.color }}>{category.icon}</span>{category.name}
+              <span style={{ background: category.color }}>{category.icon}</span><b>{category.name}</b><em>{categoryProductCount(category.name)}</em>
             </button>
           ))}
           <div className="help-card"><span>💬</span><strong>Precisa de ajuda?</strong><small>Fale com a gente pelo WhatsApp</small><a href={whatsappLink(settings.whatsapp, `Olá! Vim pela ${storeName} e preciso de ajuda.`)}>Chamar no WhatsApp</a></div>
@@ -230,7 +233,7 @@ export default function Home() {
           </section>
 
           <section className="mobile-categories" aria-label="Categorias">
-            {categories.map((category) => <button key={category.name} onClick={() => setActiveCategory(category.name)}><span style={{ background: category.color }}>{category.icon}</span><small>{category.name}</small></button>)}
+            {categories.map((category) => <button key={category.name} onClick={() => setActiveCategory(category.name)}><span style={{ background: category.color }}>{category.icon}</span><small>{category.name}</small><em>{categoryProductCount(category.name)}</em></button>)}
           </section>
 
           <section className="benefits">
