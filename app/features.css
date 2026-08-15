@@ -183,6 +183,60 @@
 .category-picker button.active { border-color: var(--pink); background: #fff1f6; color: var(--pink); }
 .category-picker i { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; font-style: normal; }
 
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #eee7ef;
+  border-radius: 14px;
+  background: #fffafd;
+}
+
+.bulk-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bulk-actions span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.bulk-actions button {
+  border: 1px solid #e4dce6;
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: white;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.bulk-actions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.product-select {
+  display: inline-flex;
+  align-items: center;
+  margin-right: -2px;
+}
+
+.bulk-actions input,
+.product-select input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--pink);
+}
+
 @media (max-width: 760px) {
   .orders-grid { grid-template-columns: 1fr; }
   .order-dashboard,

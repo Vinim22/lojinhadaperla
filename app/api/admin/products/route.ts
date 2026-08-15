@@ -112,12 +112,20 @@ export async function PUT(request: Request) {
 export async function PATCH(request: Request) {
   if (!await authorized()) return Response.json({ error: "Não autorizado" }, { status: 401 });
   await ensureCatalogTables();
-  const { id, action, resource } = await request.json();
+  const body = await request.json();
+  const { id, action, resource } = body;
   const db = await database();
   if (resource === "category") {
     if (action === "toggle") await db.prepare("UPDATE categories SET active = CASE active WHEN 1 THEN 0 ELSE 1 END WHERE id=?").bind(id).run();
     else return Response.json({ error: "Ação inválida" }, { status: 400 });
     return Response.json({ ok: true });
+  }
+  if (resource === "products") {
+    const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map((item: unknown) => Number(item)).filter((item: number) => Number.isInteger(item) && item > 0))] : [];
+    if (!ids.length || !["activate", "deactivate"].includes(action)) return Response.json({ error: "Ação inválida" }, { status: 400 });
+    const available = action === "activate" ? 1 : 0;
+    await db.batch(ids.map((productId: number) => db.prepare("UPDATE products SET available=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(available, productId)));
+    return Response.json({ ok: true, updated: ids.length });
   }
   if (action === "toggle") await db.prepare("UPDATE products SET available = CASE available WHEN 1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
   else if (action === "duplicate") await db.prepare("INSERT INTO products (name, description, price, old_price, category_id, art, color, available, featured) SELECT name || ' (cópia)', description, price, old_price, category_id, art, color, available, featured FROM products WHERE id=?").bind(id).run();

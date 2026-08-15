@@ -29,6 +29,8 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const [section, setSection] = useState<Section>("catalog");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -48,6 +50,7 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
       const data = await response.json();
       setProducts(data.products || []);
       setCategories(data.categories || []);
+      setSelectedProductIds([]);
     } else setMessage("Não foi possível carregar os produtos.");
     setLoading(false);
   }, []);
@@ -57,8 +60,12 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
   const filteredProducts = useMemo(() => products.filter(product => {
     const matchesText = `${product.name} ${product.category}`.toLowerCase().includes(query.toLowerCase());
     const matchesStatus = status === "all" || (status === "active" ? product.available : !product.available);
-    return matchesText && matchesStatus;
-  }), [products, query, status]);
+    const productCategoryIds = product.categoryIds?.length ? product.categoryIds : product.categoryId ? [product.categoryId] : [];
+    const matchesCategory = categoryFilter === "all" || productCategoryIds.includes(Number(categoryFilter));
+    return matchesText && matchesStatus && matchesCategory;
+  }), [products, query, status, categoryFilter]);
+  const visibleProductIds = useMemo(() => filteredProducts.map(product => product.id), [filteredProducts]);
+  const allVisibleSelected = visibleProductIds.length > 0 && visibleProductIds.every(id => selectedProductIds.includes(id));
   const filteredOrders = useMemo(() => orders.filter(order => {
     const orderProducts = orderItems.filter(item => item.orderId === order.id).map(item => item.productName).join(" ");
     const matchesText = `${order.id} ${order.customerName} ${order.customerPhone} ${order.neighborhood || ""} ${orderProducts}`.toLowerCase().includes(orderQuery.toLowerCase());
@@ -109,6 +116,18 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
     if (actionName === "delete" && !confirm("Excluir este produto?")) return;
     const response = await fetch("/api/admin/products", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: actionName, id }) });
     if (response.ok) { setMessage(actionName === "duplicate" ? "Produto duplicado." : actionName === "delete" ? "Produto excluído." : "Disponibilidade alterada."); await load(); }
+  };
+  const toggleProductSelection = (id: number) => {
+    setSelectedProductIds(current => current.includes(id) ? current.filter(productId => productId !== id) : [...current, id]);
+  };
+  const toggleVisibleSelection = () => {
+    setSelectedProductIds(current => allVisibleSelected ? current.filter(id => !visibleProductIds.includes(id)) : [...new Set([...current, ...visibleProductIds])]);
+  };
+  const bulkAvailability = async (nextAction: "activate" | "deactivate") => {
+    if (!selectedProductIds.length) return;
+    const response = await fetch("/api/admin/products", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ resource: "products", action: nextAction, ids: selectedProductIds }) });
+    if (response.ok) { setMessage(nextAction === "activate" ? "Produtos selecionados ativados." : "Produtos selecionados marcados como esgotados."); await load(); }
+    else setMessage("Não foi possível atualizar os produtos selecionados.");
   };
   const toggleCategory = async (id: number) => {
     const response = await fetch("/api/admin/products", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ resource: "category", action: "toggle", id }) });
@@ -201,11 +220,12 @@ export default function AdminPanel({ userName, signOutHref }: { userName: string
           <article><i>✦</i><span><small>Em destaque</small><strong>{products.filter(p => p.featured).length}</strong></span></article>
         </section>
         <section className="admin-product-panel">
-          <div className="admin-list-head"><div><h2>Catálogo</h2><span>{filteredProducts.length} itens exibidos</span></div><div className="admin-filters"><label><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar produto" /></label><select value={status} onChange={e => setStatus(e.target.value as typeof status)}><option value="all">Todos</option><option value="active">Ativos</option><option value="inactive">Esgotados</option></select></div></div>
+          <div className="admin-list-head"><div><h2>Catálogo</h2><span>{filteredProducts.length} itens exibidos</span></div><div className="admin-filters"><label><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar produto" /></label><select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}><option value="all">Todas categorias</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select><select value={status} onChange={e => setStatus(e.target.value as typeof status)}><option value="all">Todos</option><option value="active">Ativos</option><option value="inactive">Esgotados</option></select></div></div>
           {loading ? <p className="admin-empty">Carregando catálogo...</p> : filteredProducts.length ? <div className="admin-product-table">
+            <div className="bulk-actions"><label><input type="checkbox" checked={allVisibleSelected} onChange={toggleVisibleSelection} /> Selecionar visíveis</label><span>{selectedProductIds.length} selecionado{selectedProductIds.length === 1 ? "" : "s"}</span><button disabled={!selectedProductIds.length} onClick={() => bulkAvailability("activate")}>Ativar</button><button disabled={!selectedProductIds.length} onClick={() => bulkAvailability("deactivate")}>Esgotar</button><button disabled={!selectedProductIds.length} onClick={() => setSelectedProductIds([])}>Limpar</button></div>
             <div className="admin-table-labels"><span>Produto</span><span>Categoria</span><span>Preço</span><span>Status</span><span>Ações</span></div>
             {filteredProducts.map(product => <article key={product.id} className={!product.available ? "unavailable" : ""}>
-              <div className="admin-product-name"><span className="admin-art" style={{ background: product.color }}>{product.art}</span><span><strong>{product.name}</strong><small>#{String(product.id).padStart(4, "0")}</small></span></div>
+              <div className="admin-product-name"><label className="product-select"><input type="checkbox" aria-label={`Selecionar ${product.name}`} checked={selectedProductIds.includes(product.id)} onChange={() => toggleProductSelection(product.id)} /></label><span className="admin-art" style={{ background: product.color }}>{product.art}</span><span><strong>{product.name}</strong><small>#{String(product.id).padStart(4, "0")}</small></span></div>
               <span>{product.category}</span><strong>{money(product.price)}</strong><span className={`status-pill ${product.available ? "on" : "off"}`}>{product.available ? "Ativo" : "Esgotado"}</span>
               <div className="admin-row-actions"><button onClick={() => edit(product)}>Editar</button><button title="Alterar disponibilidade" onClick={() => action("toggle", product.id)}>●</button><button title="Duplicar" onClick={() => action("duplicate", product.id)}>⧉</button><button className="danger" title="Excluir" onClick={() => action("delete", product.id)}>⌫</button></div>
             </article>)}
