@@ -19,6 +19,16 @@
   line-height: 1.45;
 }
 
+.checkout-missing {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #7b5a11;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .cart-totals {
   display: grid;
   gap: 8px;
