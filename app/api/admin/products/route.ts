@@ -122,9 +122,14 @@ export async function PATCH(request: Request) {
   }
   if (resource === "products") {
     const ids = Array.isArray(body.ids) ? [...new Set(body.ids.map((item: unknown) => Number(item)).filter((item: number) => Number.isInteger(item) && item > 0))] : [];
-    if (!ids.length || !["activate", "deactivate"].includes(action)) return Response.json({ error: "Ação inválida" }, { status: 400 });
-    const available = action === "activate" ? 1 : 0;
-    await db.batch(ids.map((productId: number) => db.prepare("UPDATE products SET available=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(available, productId)));
+    if (!ids.length || !["activate", "deactivate", "feature", "unfeature"].includes(action)) return Response.json({ error: "Ação inválida" }, { status: 400 });
+    if (action === "activate" || action === "deactivate") {
+      const available = action === "activate" ? 1 : 0;
+      await db.batch(ids.map((productId: number) => db.prepare("UPDATE products SET available=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(available, productId)));
+    } else {
+      const featured = action === "feature" ? 1 : 0;
+      await db.batch(ids.map((productId: number) => db.prepare("UPDATE products SET featured=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(featured, productId)));
+    }
     return Response.json({ ok: true, updated: ids.length });
   }
   if (action === "toggle") await db.prepare("UPDATE products SET available = CASE available WHEN 1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
