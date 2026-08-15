@@ -133,7 +133,11 @@ export async function PATCH(request: Request) {
     return Response.json({ ok: true, updated: ids.length });
   }
   if (action === "toggle") await db.prepare("UPDATE products SET available = CASE available WHEN 1 THEN 0 ELSE 1 END, updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(id).run();
-  else if (action === "duplicate") await db.prepare("INSERT INTO products (name, description, price, old_price, category_id, art, color, available, featured) SELECT name || ' (cópia)', description, price, old_price, category_id, art, color, available, featured FROM products WHERE id=?").bind(id).run();
+  else if (action === "duplicate") {
+    const result = await db.prepare("INSERT INTO products (name, description, price, old_price, category_id, art, color, available, featured) SELECT name || ' (cópia)', description, price, old_price, category_id, art, color, available, featured FROM products WHERE id=?").bind(id).run();
+    const duplicateId = Number(result.meta.last_row_id);
+    if (duplicateId) await db.prepare("INSERT OR IGNORE INTO product_categories (product_id, category_id) SELECT ?, category_id FROM product_categories WHERE product_id=?").bind(duplicateId, id).run();
+  }
   else if (action === "delete") await db.prepare("DELETE FROM products WHERE id=?").bind(id).run();
   else return Response.json({ error: "Ação inválida" }, { status: 400 });
   return Response.json({ ok: true });
