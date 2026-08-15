@@ -46,11 +46,14 @@ const whatsappLink = (phone?: string, text?: string) => {
 };
 
 const productCategories = (product: Product) => product.category.split(",").map(category => category.trim()).filter(Boolean);
+const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const productSearchText = (product: Product) => normalizeSearch(`${product.name} ${product.category} ${product.description || ""}`);
 
 function Header({ storeName, products, cartCount, cartTotal, onCart, onFavorites, onProduct, onCategory, onSearch }: { storeName: string; products: Product[]; cartCount: number; cartTotal: number; onCart: () => void; onFavorites: () => void; onProduct: (product: Product) => void; onCategory: (category: string) => void; onSearch: (query: string) => void }) {
   const [query, setQuery] = useState("");
+  const normalizedQuery = normalizeSearch(query.trim());
   const matches = query.trim()
-    ? products.filter((product) => product.name.toLowerCase().includes(query.toLowerCase())).slice(0, 4)
+    ? products.filter((product) => productSearchText(product).includes(normalizedQuery)).slice(0, 4)
     : [];
 
   return (
@@ -182,7 +185,7 @@ export default function Home() {
   const openProduct = (product: Product) => { if (view === "store") setStoreScroll(window.scrollY); setSelectedProduct(product); setView("product"); setRecentIds(current => [product.id, ...current.filter(id => id !== product.id)].slice(0, 10)); history.replaceState(null, "", `#produto-${product.id}`); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const openCategory = (category: string) => { setActiveCategory(category); setView("store"); requestAnimationFrame(() => document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" })); };
   const openSearch = (query: string) => { setSearchQuery(query); setView("search"); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const searchProducts = products.filter(product => `${product.name} ${product.category} ${product.description || ""}`.toLowerCase().includes(searchQuery.toLowerCase()));
+  const searchProducts = products.filter(product => productSearchText(product).includes(normalizeSearch(searchQuery)));
   const recentProducts = recentIds.map(id => products.find(product => product.id === id)).filter(Boolean) as Product[];
   const relatedProducts = selectedProduct ? products.filter(product => product.id !== selectedProduct.id && productCategories(product).some(category => productCategories(selectedProduct).includes(category))).slice(0, 8) : [];
   const orderText = useMemo(() => {
