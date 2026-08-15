@@ -334,6 +334,16 @@
   font-weight: 800;
 }
 
+.clear-admin-filters {
+  border: 1px solid #eadfee;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fbf7ff;
+  color: var(--purple);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .bulk-actions {
   display: flex;
   flex-wrap: wrap;
@@ -394,6 +404,7 @@
   .order-filters { grid-template-columns: 1fr; }
   .order-success { min-height: 420px; padding: 30px 20px; }
   .admin-category-tags { grid-column: 1 / -1; }
+  .clear-admin-filters { min-height: 40px; flex: 1 0 100%; }
   .settings-grid,
   .category-manager,
   .neighborhood-form { grid-template-columns: 1fr; }
