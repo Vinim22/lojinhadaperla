@@ -46,6 +46,12 @@
   font-weight: 800;
 }
 
+.search-category-chips.empty {
+  justify-content: center;
+  margin: 18px auto 0;
+  max-width: 560px;
+}
+
 .cart-totals {
   display: grid;
   gap: 8px;
