@@ -8,6 +8,17 @@
   font-size: 12px;
 }
 
+.fulfillment-summary {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #eee4ec;
+  border-radius: 12px;
+  background: #fffafd;
+  color: #6e6470;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .cart-totals {
   display: grid;
   gap: 8px;
