@@ -132,6 +132,9 @@
 .order-customer { display: grid; gap: 4px; padding: 16px 20px; }
 .order-customer a { color: var(--purple); font-size: 12px; text-decoration: none; }
 .order-customer small { color: #948d96; }
+.order-contact-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.order-contact-actions a { border: 1px solid #e5dce8; border-radius: 999px; padding: 7px 10px; background: #fffafd; color: var(--ink); font-weight: 800; }
+.order-contact-actions a:last-child { border-color: #bdebd1; background: #effcf5; color: #16844d; }
 .order-admin-items { padding: 0 20px; }
 .order-admin-items p { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 0; border-top: 1px solid #f0edf1; font-size: 12px; }
 .order-admin-card footer { display: flex; justify-content: space-between; padding: 15px 20px; background: #faf8fa; }
