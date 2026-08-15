@@ -245,9 +245,9 @@ export default function Home() {
 
           <section className="products-section" id="produtos">
             <div className="section-heading"><div><span>PARA VOCÊ</span><h2>{activeCategory === "Todos" ? "Produtos em destaque" : activeCategory}</h2></div><p>{filteredProducts.length} produtos</p></div>
-            <div className="product-grid">
+            {filteredProducts.length > 0 ? <div className="product-grid">
               {filteredProducts.map((product) => <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onFavorite={() => toggleFavorite(product.id)} onOpen={() => openProduct(product)} onAdd={(item) => setCart(current => [...current, item])} />)}
-            </div>
+            </div> : <div className="empty-category"><span>⌕</span><h3>Nada por aqui agora</h3><p>Essa categoria ainda não tem produtos disponíveis. Veja todos os produtos para continuar comprando.</p><button onClick={() => setActiveCategory("Todos")}>Ver todos</button></div>}
           </section>
           {recentProducts.length > 0 && <section className="recent-section"><div className="section-heading"><div><span>VISTOS RECENTEMENTE</span><h2>Continue de onde parou</h2></div></div><div className="horizontal-products">{recentProducts.map(product => <ProductCard key={product.id} product={product} favorite={favorites.includes(product.id)} onFavorite={() => toggleFavorite(product.id)} onOpen={() => openProduct(product)} onAdd={item => setCart(current => [...current,item])}/>)}</div></section>}
         </div>
