@@ -120,7 +120,13 @@
 .order-filters input,
 .order-filters select { width: 100%; border: 1px solid #ddd7df; border-radius: 12px; padding: 12px 13px; font: inherit; background: white; }
 .order-filters label input { border: 0; padding-left: 0; }
-.order-admin-card { overflow: hidden; border: 1px solid #e5e1e6; border-radius: 14px; background: white; }
+.order-admin-card { position: relative; overflow: hidden; border: 1px solid #e5e1e6; border-radius: 14px; background: white; }
+.order-admin-card::before { position: absolute; top: 62px; right: 20px; z-index: 1; border-radius: 999px; padding: 5px 9px; background: #f7f1f6; color: #6d5f6e; font-size: 10px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.order-admin-card.order-status-novo::before { content: "Precisa de ação"; background: #fff0f5; color: #b43555; }
+.order-admin-card.order-status-confirmado::before { content: "Confirmado"; background: #f1f4ff; color: #4d5fa8; }
+.order-admin-card.order-status-preparando::before { content: "Preparando"; background: #fff7da; color: #8d6a10; }
+.order-admin-card.order-status-concluido::before { content: "Concluído"; background: #effcf5; color: #16844d; }
+.order-admin-card.order-status-cancelado::before { content: "Cancelado"; background: #f1eef2; color: #827784; }
 .order-admin-card.order-status-novo { border-color: #ffc9d8; }
 .order-admin-card.order-status-preparando { border-color: #f0d384; }
 .order-admin-card.order-status-concluido { opacity: .72; }
