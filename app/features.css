@@ -75,6 +75,14 @@
   margin-top: 5px;
 }
 
+.mobile-categories button.active {
+  color: var(--pink-dark);
+}
+
+.mobile-categories button.active span {
+  box-shadow: 0 0 0 3px #fff, 0 0 0 5px #f3bfd0;
+}
+
 .cart-totals {
   display: grid;
   gap: 8px;

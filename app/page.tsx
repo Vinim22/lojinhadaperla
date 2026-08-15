@@ -233,7 +233,8 @@ export default function Home() {
           </section>
 
           <section className="mobile-categories" aria-label="Categorias">
-            {categories.map((category) => <button key={category.name} onClick={() => setActiveCategory(category.name)}><span style={{ background: category.color }}>{category.icon}</span><small>{category.name}</small><em>{categoryProductCount(category.name)}</em></button>)}
+            <button className={activeCategory === "Todos" ? "active" : ""} onClick={() => setActiveCategory("Todos")}><span>⌂</span><small>Todos</small><em>{categoryProductCount("Todos")}</em></button>
+            {categories.map((category) => <button key={category.name} className={activeCategory === category.name ? "active" : ""} onClick={() => setActiveCategory(category.name)}><span style={{ background: category.color }}>{category.icon}</span><small>{category.name}</small><em>{categoryProductCount(category.name)}</em></button>)}
           </section>
 
           <section className="benefits">
