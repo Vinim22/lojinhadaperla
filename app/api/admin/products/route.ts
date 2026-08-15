@@ -27,7 +27,7 @@ export async function GET() {
   const db = await database();
   const [productResult, categoryResult, productCategoryResult] = await db.batch([
     db.prepare("SELECT p.id, p.name, p.description, p.price, p.old_price AS oldPrice, p.category_id AS categoryId, COALESCE(GROUP_CONCAT(DISTINCT c.name), 'Sem categoria') AS category, p.art, p.color, p.available, p.featured FROM products p LEFT JOIN product_categories pc ON pc.product_id = p.id LEFT JOIN categories c ON c.id = pc.category_id GROUP BY p.id ORDER BY p.id DESC"),
-    db.prepare("SELECT c.id, c.name, c.icon, c.color, c.position, c.active, COUNT(p.id) AS productCount FROM categories c LEFT JOIN products p ON p.category_id = c.id GROUP BY c.id ORDER BY c.position, c.name"),
+    db.prepare("SELECT c.id, c.name, c.icon, c.color, c.position, c.active, COUNT(DISTINCT pc.product_id) AS productCount FROM categories c LEFT JOIN product_categories pc ON pc.category_id = c.id GROUP BY c.id ORDER BY c.position, c.name"),
     db.prepare("SELECT product_id AS productId, category_id AS categoryId FROM product_categories"),
   ]);
   const categoryIdsByProduct = new Map<number, number[]>();
